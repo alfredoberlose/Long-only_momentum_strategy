@@ -1,110 +1,98 @@
-# 📈 Long-Only Momentum & Composite Strategy
+# Long-Only Momentum & Composite Strategy
 
-Questo repository contiene il codice Python per una **strategia quantitativa long-only** progettata per ottenere rendimenti corretti per il rischio superiori alla media, combinando:
+This repository contains Python code for a **long-only quantitative strategy** designed to achieve superior risk-adjusted returns by combining:
 
 - **ITSM (Inverse Tangent Signal Model)**  
 - **Composite Technical Score**  
 - **Volatility Targeting**
 
-La strategia mantiene un portafoglio **completamente investito (long-only)** sull’universo azionario selezionato.
+The strategy maintains a **fully invested (long-only)** portfolio within a selected equity universe.
 
 ---
 
-## ⚙️ Strategy Highlights
+## Strategy Highlights
 
-- **Core Logic:** selezione di titoli basata su uno **score composito**:
-  - 40% ITSM/Momentum  
+- **Core Logic:** stock selection based on a **composite score**:  
+  - 40% ITSM / Momentum  
   - 40% Composite Score  
   - 20% Gap Quality Factor  
-- **Risk Management:** utilizzo del **Volatility Targeting** per mantenere una volatilità annualizzata target del **15% (Target Vol = 0.15)**  
-- **Regime Filter:** filtro **Risk-On/Risk-Off** basato sulla **EMA a lungo termine** del benchmark (riduce l’esposizione nei periodi “Risk-Off”)  
-- **Rebalancing:** ribilanciamento **settimanale (ogni Venerdì)**  
+- **Risk Management:** uses **Volatility Targeting** to keep annualized volatility near a 15% target (`Target Vol = 0.15`)  
+- **Regime Filter:** applies a **Risk-On / Risk-Off** filter based on the benchmark’s long-term EMA (reduces exposure during “Risk-Off” periods)  
+- **Rebalancing:** portfolio is **rebalanced weekly (every Friday)**  
 
 ---
 
-## 📊 Performance Summary (2015-01-01 → 2025-10-10)
+## Performance Summary (2015-01-01 → 2025-10-10)
 
-I risultati del backtest mostrano una **netta sovraperformance** rispetto al benchmark globale (MSCI ACWI).
+The backtest results show a **clear outperformance** compared to the global benchmark (MSCI ACWI).
 
-| **Metric** | **Portfolio** | **Relative to ACWI** | **Benchmark (ACWI)** |
+| Metric | Portfolio | Relative to ACWI | Benchmark (ACWI) |
 | :--- | :--- | :--- | :--- |
 | **CAGR (Annualized Return)** | **18.45%** | +7.69% | ~10.76% |
 | **Sharpe Ratio** | **1.06** | +0.12 | ~0.94 |
-| **Annualized Volatility** | 17.40% | — | (più alta) |
-| **Max Drawdown (MaxDD)** | -28.95% | -18.14% | (più alto) |
-| **Total Return** | **548.25%** | — | (inferiore) |
+| **Annualized Volatility** | 17.40% | — | (higher) |
+| **Max Drawdown (MaxDD)** | -28.95% | -18.14% | (deeper) |
+| **Total Return** | **548.25%** | — | (lower) |
 
 ---
 
-### 📈 Equity Curve & Relative Performance
+### Equity Curve & Relative Performance
 
-Il grafico seguente mostra l’evoluzione dell’equity del portafoglio rispetto al benchmark, evidenziando la **consistenza della sovraperformance** e la **rapidità di recupero** dopo le fasi di drawdown.
+The following chart shows the evolution of the portfolio equity versus the benchmark, highlighting the **consistency of outperformance** and the **speed of recovery** after drawdowns.
 
-![Grafico Equity Curve e Performance Relativa della strategia Long-Only](./Long-only.png)
+![Equity Curve and Relative Performance of the Long-Only Strategy](./Long-only.png)
 
 ---
 
-## 🧮 Strategy Mechanics — Key Calculations
+## Strategy Mechanics — Key Calculations
 
-Il peso finale di ciascun titolo (`w_t`) è ottenuto in più fasi:  
+The final weight of each asset (`w_t`) is determined in multiple steps:  
 **signal generation → score blending → regime filtering → volatility scaling**
 
 ---
 
-### 1️⃣ Composite Score (da 0 a 6)
+### 1. Composite Score (range 0–6)
 
-Il **Composite Score** (`Comp`) combina sei indicatori tecnici principali:  
-ROC, EMA, MACD, RSI, MFI, e OBV.
+The **Composite Score** (`Comp`) combines six technical indicators:  
+ROC, EMA, MACD, RSI, MFI, and OBV.
 
 Comp_Score = Signal_ROC + Signal_EMA + Signal_MACD + Signal_RSI + Signal_MFI + Signal_OBV
 
-> Il punteggio è filtrato da una soglia `ATRP_MAX` e confrontato con la **Relative Strength (RS)** rispetto al benchmark prima di entrare nel blend finale.
+yaml
+Copia codice
+
+> The score is filtered using an `ATRP_MAX` threshold and compared to the asset’s **Relative Strength (RS)** versus the benchmark before entering the final blend.
 
 ---
 
-### 2️⃣ Final Continuous Score
+### 2. Final Continuous Score
 
-Il punteggio continuo finale (`Score_Cont`) è una **media ponderata** di tre componenti:
+The final continuous score (`Score_Cont`) is a **weighted average** of three components:
 
 Score_Cont = (0.4 * Blend) + (0.4 * Comp_Norm) + (0.2 * Gap_Factor)
 
+yaml
+Copia codice
+
 ---
 
-### 3️⃣ Volatility Targeting & Exposure
+### 3. Volatility Targeting & Exposure
 
-La strategia scala i pesi per mantenere una **volatilità annualizzata costante** di circa **15%**.
+The strategy scales the position weights to maintain an **annualized volatility target** of approximately **15%**.
 
-Lo **Scaling Factor (`Scale`)** dipende dalla volatilità realizzata del portafoglio (`RV`):
+The **Scaling Factor (`Scale`)** depends on the realized portfolio volatility (`RV`):
 
 Scale = min(1.0, max(0.5, TARGET_VOL / RV))
 
-Il peso finale è calcolato come:
+swift
+Copia codice
+
+The final weight for each asset is computed as:
 
 w_final = w_raw * Scale * Expo
 
-> Dopo la scalatura, i pesi vengono normalizzati a una **gross exposure del 100%**, con un **limite massimo per titolo** (`MAX_WEIGHT = 20%`).
+yaml
+Copia codice
 
----
-
-## 🔄 Example — Rebalancing Trade List
-
-Esempio di operazioni necessarie per passare da un portafoglio **Equal Weight (06-10-2025)** ai nuovi pesi target **(10-10-2025)**:
-
-| **Ticker** | **Old Weight** | **New Weight** | **Action** |
-| :--- | :--- | :--- | :--- |
-| **LLY** | 6.67% | **14.07%** | **BUY ↑** |
-| **MSFT** | 6.67% | **12.79%** | **BUY ↑** |
-| **PFE** | 6.67% | **11.51%** | **BUY ↑** |
-| **AMD** | 6.67% | **9.97%** | **BUY ↑** |
-| **UNH** | 6.67% | **9.97%** | **BUY ↑** |
-| ENEL.MI | 6.67% | 8.70% | REDUCE ↓ |
-| LMT | 6.67% | 8.70% | BUY ↑ |
-| DUK | 6.67% | 7.67% | BUY ↑ |
-| CAT | 6.67% | 7.42% | BUY ↑ |
-| BCS | 6.67% | 2.30% | REDUCE ↓ |
-| NEM | 6.67% | 2.30% | REDUCE ↓ |
-| QCOM | 6.67% | 2.30% | REDUCE ↓ |
-| UBS | 6.67% | 2.30% | REDUCE ↓ |
-| ADBE | 6.67% | **0.00%** | **SELL** |
-| SHW | 6.67% | **0.00%** | **SELL** |
+> After scaling, weights are normalized to maintain **100% gross exposure**, with a **maximum weight per asset** (`MAX_WEIGHT = 20%`).
 
